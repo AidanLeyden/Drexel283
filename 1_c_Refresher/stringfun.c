@@ -335,7 +335,7 @@ int main(int argc, char *argv[]){
 //          the buff variable will have exactly 50 bytes?
 //  
 //          PLACE YOUR ANSWER HERE
-//providing both the pointer and the length is a good generally good practice
+//providing both the pointer and the length is a generally good practice
 //because it allows for the function to be able to easily work with buffers
 //of varying sizes. This would be more obviously useful in a program where
 //the buffer was not always 50 bytes. 
