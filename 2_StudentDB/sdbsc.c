@@ -147,22 +147,21 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa){
  *            
  */
 int del_student(int fd, int id){
-    int offset = id * STUDENT_RECORD_SIZE;
-    student_t student = {0};
-    if (lseek(fd, offset, SEEK_SET) == -1) {
-        printf(M_ERR_DB_READ);
-        return ERR_DB_FILE;
-    }
-    if (read(fd, &student, STUDENT_RECORD_SIZE) == -1) {
-        printf(M_ERR_DB_READ);
-        return ERR_DB_FILE;
-    }
-    if (student.id == 0) {
+    student_t student;
+    int stu = get_student(fd, id, &student);
+    if (stu == SRCH_NOT_FOUND) {
         printf(M_STD_NOT_FND_MSG, id);
         return ERR_DB_OP;
+    } else if (stu != NO_ERROR) {
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
     }
-    lseek(fd, offset, SEEK_SET);
-    write(fd, &EMPTY_STUDENT_RECORD, STUDENT_RECORD_SIZE);
+    int offset = id * STUDENT_RECORD_SIZE;
+    if (lseek(fd, offset, SEEK_SET) == -1 || 
+        write(fd, &EMPTY_STUDENT_RECORD, STUDENT_RECORD_SIZE) != STUDENT_RECORD_SIZE) {
+        printf(M_ERR_DB_WRITE); 
+        return ERR_DB_FILE;
+    }
     printf(M_STD_DEL_MSG, id);
     return NO_ERROR;
 }
@@ -194,6 +193,7 @@ int del_student(int fd, int id){
 int count_db_records(int fd){
     int count = 0;
     student_t student = {0};
+    lseek(fd, 0, SEEK_SET);
     while (read(fd, &student, STUDENT_RECORD_SIZE) == STUDENT_RECORD_SIZE) {
         if (memcmp(&student, &EMPTY_STUDENT_RECORD, STUDENT_RECORD_SIZE) != 0) {
             count++;
@@ -359,8 +359,35 @@ void print_student(student_t *s){
  *            
  */
 int compress_db(int fd){
-    printf(M_NOT_IMPL);
-    return fd;
+    int tfd;
+    tfd = open_db(TMP_DB_FILE, true);
+    if (tfd < 0) {
+        printf(M_ERR_DB_OPEN);
+        return ERR_DB_FILE;
+    }
+    lseek(fd, 0, SEEK_SET);
+    lseek(tfd, 0, SEEK_SET);
+    student_t student = {0};
+    while (1) {
+        if (read(fd, &student, STUDENT_RECORD_SIZE) == 0) {
+            break;
+        }
+        if (memcmp(&student, &EMPTY_STUDENT_RECORD, STUDENT_RECORD_SIZE) != 0) {
+            lseek(tfd, student.id * STUDENT_RECORD_SIZE, SEEK_SET);
+            if (write(tfd, &student, STUDENT_RECORD_SIZE) != STUDENT_RECORD_SIZE) {
+                printf(M_ERR_DB_WRITE);
+                return ERR_DB_FILE;
+            }
+        }
+    }
+    close(fd);
+    close(tfd);
+    if (rename(TMP_DB_FILE, DB_FILE) == -1) {
+        printf(M_ERR_DB_CREATE);
+        return ERR_DB_FILE;
+    }
+    printf(M_DB_COMPRESSED_OK);
+    return open_db(DB_FILE, false);
 }
 
 
